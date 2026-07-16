@@ -16,6 +16,46 @@ interface VehiclePosition {
   label: string;
 }
 
+
+const METRO_LINES: Record<string, { color: string, coords: [number, number][] }> = {
+  '1': {
+    color: '#008E4F',
+    coords: [
+      [45.4410, -73.5997],
+      [45.4854, -73.5828],
+      [45.5039, -73.5623],
+      [45.5393, -73.5414],
+      [45.5960, -73.5356]
+    ]
+  },
+  '2': {
+    color: '#EF7C00',
+    coords: [
+      [45.5147, -73.6816],
+      [45.4839, -73.6191],
+      [45.4854, -73.5828],
+      [45.5015, -73.5630],
+      [45.5137, -73.5574],
+      [45.5564, -73.7145]
+    ]
+  },
+  '4': {
+    color: '#FFE000',
+    coords: [
+      [45.5137, -73.5574],
+      [45.5262, -73.5222]
+    ]
+  },
+  '5': {
+    color: '#0083C9',
+    coords: [
+      [45.4839, -73.6191],
+      [45.5085, -73.6146],
+      [45.5593, -73.6009]
+    ]
+  }
+};
+
 export const StmRealTimeTracker: React.FC = () => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -23,6 +63,8 @@ export const StmRealTimeTracker: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const markersRef = useRef<{ [id: string]: L.Marker }>({});
+  const [filter, setFilter] = useState<'ALL' | 'BUS' | 'METRO'>('ALL');
+  const polylineRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -37,6 +79,19 @@ export const StmRealTimeTracker: React.FC = () => {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
     }).addTo(map);
+
+    const layerGroup = L.layerGroup().addTo(map);
+    polylineRef.current = layerGroup;
+
+    Object.values(METRO_LINES).forEach(line => {
+      L.polyline(line.coords, {
+        color: line.color,
+        weight: 6,
+        opacity: 0.6,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(layerGroup);
+    });
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -100,7 +155,8 @@ export const StmRealTimeTracker: React.FC = () => {
     if (!map) return;
 
     // Remove old markers
-    const currentIds = new Set(vehicles.map(v => v.id));
+    const visibleVehicles = vehicles.filter(v => filter === 'ALL' || v.type === filter);
+    const currentIds = new Set(visibleVehicles.map(v => v.id));
     Object.keys(markersRef.current).forEach(id => {
       if (!currentIds.has(id)) {
         map.removeLayer(markersRef.current[id]);
@@ -108,8 +164,17 @@ export const StmRealTimeTracker: React.FC = () => {
       }
     });
 
+    // Show/hide metro lines
+    if (polylineRef.current) {
+      if (filter === 'BUS') {
+        map.removeLayer(polylineRef.current);
+      } else {
+        map.addLayer(polylineRef.current);
+      }
+    }
+    
     // Add/Update markers
-    vehicles.forEach(v => {
+    visibleVehicles.forEach(v => {
       const iconHtml = v.type === 'METRO' 
         ? `<div class="w-6 h-6 rounded-full bg-green-500 border-2 border-slate-900 flex items-center justify-center text-white shadow-[0_0_10px_rgba(34,197,94,0.5)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><path d="M4 12h16"></path><path d="M12 4v16"></path></svg></div>`
         : `<div class="w-6 h-6 rounded-full bg-blue-500 border-2 border-slate-900 flex items-center justify-center text-white shadow-[0_0_10px_rgba(59,130,246,0.5)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg></div>`;
@@ -153,7 +218,7 @@ export const StmRealTimeTracker: React.FC = () => {
       }
     });
 
-  }, [vehicles]);
+  }, [vehicles, filter]);
 
   return (
     <div className="flex flex-col h-full bg-slate-900 rounded-xl overflow-hidden border border-slate-800">
@@ -168,6 +233,28 @@ export const StmRealTimeTracker: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          
+          <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700 mr-2">
+            <button 
+              onClick={() => setFilter('ALL')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filter === 'ALL' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              Tous
+            </button>
+            <button 
+              onClick={() => setFilter('BUS')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filter === 'BUS' ? 'bg-blue-900 text-blue-200' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              Bus
+            </button>
+            <button 
+              onClick={() => setFilter('METRO')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filter === 'METRO' ? 'bg-green-900 text-green-200' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              Métro
+            </button>
+          </div>
+
           <div className="text-xs text-slate-400 font-mono">
             {vehicles.length} véhicules actifs
           </div>

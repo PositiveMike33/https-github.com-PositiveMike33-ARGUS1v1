@@ -1144,7 +1144,7 @@ export function STMIncidentMap({ feeds, selectedFeed, onSelectFeed }: STMInciden
 
   const requestUserLocation = () => {
     if (!navigator.geolocation) {
-      alert("La géolocalisation n'est pas supportée par votre navigateur.");
+      console.warn("La géolocalisation n'est pas supportée par votre navigateur.");
       return;
     }
     setIsLocating(true);
@@ -1158,10 +1158,9 @@ export function STMIncidentMap({ feeds, selectedFeed, onSelectFeed }: STMInciden
         mapRef.current?.flyTo([lat, lng], 13);
       },
       (error) => {
-        console.error("Error fetching location:", error);
+        console.warn("Geolocation fallback: Unable to get real position, using simulated location.", error);
         setIsLocating(false);
         setIsRealGPS(false);
-        alert("Impossible de récupérer votre position réelle (accès refusé ou bloqué). Utilisation de la position simulée.");
       },
       { enableHighAccuracy: true, timeout: 5000 }
     );

@@ -1470,21 +1470,89 @@ app.get('/api/stm/gtfs-rt', optionalAuth, async (req: any, res) => {
               timestamp: Date.now() / 1000,
               vehicle: { id: "1234", label: "61 Wellington" }
             }
-          },
-          {
-            id: "METRO_GREEN_1",
-            vehicle: {
-              trip: { tripId: "T_M1", routeId: "1" },
-              position: { latitude: 45.4952, longitude: -73.5786, speed: 20.1 }, // Guy-Concordia area
-              currentStopSequence: 10,
-              stopId: "S_M_GUY",
-              currentStatus: "STOPPED_AT",
-              timestamp: Date.now() / 1000,
-              vehicle: { id: "M1", label: "Metro Green Line" }
-            }
           }
         ]
       };
+      
+      
+    // Add simulated metros (since STM does not provide real-time Metro positions via GTFS-RT)
+    const simulatedMetros = [];
+    const t = Date.now() / 1000;
+    
+    // Some basic simulated metro locations along the lines
+    const metroLineCoordinates = {
+      '1': [ // Green line
+        { lat: 45.4410, lng: -73.5997 }, // Angrignon
+        { lat: 45.4854, lng: -73.5828 }, // Lionel-Groulx
+        { lat: 45.5039, lng: -73.5623 }, // Place-des-Arts
+        { lat: 45.5393, lng: -73.5414 }, // Pie-IX
+        { lat: 45.5960, lng: -73.5356 }  // Honore-Beaugrand
+      ],
+      '2': [ // Orange line
+        { lat: 45.5147, lng: -73.6816 }, // Cote-Vertu
+        { lat: 45.4839, lng: -73.6191 }, // Snowdon
+        { lat: 45.4854, lng: -73.5828 }, // Lionel-Groulx
+        { lat: 45.5015, lng: -73.5630 }, // Square-Victoria
+        { lat: 45.5137, lng: -73.5574 }, // Berri-UQAM
+        { lat: 45.5564, lng: -73.7145 }  // Montmorency (approx)
+      ],
+      '4': [ // Yellow line
+        { lat: 45.5137, lng: -73.5574 }, // Berri-UQAM
+        { lat: 45.5262, lng: -73.5222 }  // Longueuil
+      ],
+      '5': [ // Blue line
+        { lat: 45.4839, lng: -73.6191 }, // Snowdon
+        { lat: 45.5085, lng: -73.6146 }, // Universite de Montreal
+        { lat: 45.5593, lng: -73.6009 }  // Saint-Michel
+      ]
+    };
+
+    let metroIdCounter = 1;
+    for (const [routeId, coords] of Object.entries(metroLineCoordinates)) {
+      // Create a few trains per line
+      for (let i = 0; i < coords.length - 1; i++) {
+        // Interpolate a position between stations based on time
+        const start = coords[i];
+        const end = coords[i+1];
+        
+        const cycle = 120; // 2 minutes between these points
+        const progress = (t % cycle) / cycle;
+        
+        // Train moving forward
+        const lat = start.lat + (end.lat - start.lat) * progress;
+        const lng = start.lng + (end.lng - start.lng) * progress;
+        
+        // Backwards train
+        const bProgress = 1 - progress;
+        const bLat = start.lat + (end.lat - start.lat) * bProgress;
+        const bLng = start.lng + (end.lng - start.lng) * bProgress;
+
+        simulatedMetros.push({
+          id: `METRO_${routeId}_${metroIdCounter++}`,
+          vehicle: {
+            trip: { tripId: `T_M${routeId}_${i}`, routeId: routeId },
+            position: { latitude: lat, longitude: lng, speed: 15.0 },
+            currentStatus: "IN_TRANSIT_TO",
+            timestamp: t,
+            vehicle: { id: `M${routeId}_${i}`, label: `Metro Ligne ${routeId} (DIR 1)` }
+          }
+        });
+        
+        simulatedMetros.push({
+          id: `METRO_${routeId}_${metroIdCounter++}`,
+          vehicle: {
+            trip: { tripId: `T_M${routeId}_${i}_B`, routeId: routeId },
+            position: { latitude: bLat, longitude: bLng, speed: 15.0 },
+            currentStatus: "IN_TRANSIT_TO",
+            timestamp: t,
+            vehicle: { id: `M${routeId}_${i}_B`, label: `Metro Ligne ${routeId} (DIR 2)` }
+          }
+        });
+      }
+    }
+
+      simulatedData.entity.push(...simulatedMetros);
+
       res.json({ success: true, simulated: true, data: simulatedData });
       return;
     }
@@ -1504,6 +1572,87 @@ app.get('/api/stm/gtfs-rt', optionalAuth, async (req: any, res) => {
 
     const buffer = await response.arrayBuffer();
     const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(new Uint8Array(buffer));
+    
+    
+    // Add simulated metros (since STM does not provide real-time Metro positions via GTFS-RT)
+    const simulatedMetros = [];
+    const t = Date.now() / 1000;
+    
+    // Some basic simulated metro locations along the lines
+    const metroLineCoordinates = {
+      '1': [ // Green line
+        { lat: 45.4410, lng: -73.5997 }, // Angrignon
+        { lat: 45.4854, lng: -73.5828 }, // Lionel-Groulx
+        { lat: 45.5039, lng: -73.5623 }, // Place-des-Arts
+        { lat: 45.5393, lng: -73.5414 }, // Pie-IX
+        { lat: 45.5960, lng: -73.5356 }  // Honore-Beaugrand
+      ],
+      '2': [ // Orange line
+        { lat: 45.5147, lng: -73.6816 }, // Cote-Vertu
+        { lat: 45.4839, lng: -73.6191 }, // Snowdon
+        { lat: 45.4854, lng: -73.5828 }, // Lionel-Groulx
+        { lat: 45.5015, lng: -73.5630 }, // Square-Victoria
+        { lat: 45.5137, lng: -73.5574 }, // Berri-UQAM
+        { lat: 45.5564, lng: -73.7145 }  // Montmorency (approx)
+      ],
+      '4': [ // Yellow line
+        { lat: 45.5137, lng: -73.5574 }, // Berri-UQAM
+        { lat: 45.5262, lng: -73.5222 }  // Longueuil
+      ],
+      '5': [ // Blue line
+        { lat: 45.4839, lng: -73.6191 }, // Snowdon
+        { lat: 45.5085, lng: -73.6146 }, // Universite de Montreal
+        { lat: 45.5593, lng: -73.6009 }  // Saint-Michel
+      ]
+    };
+
+    let metroIdCounter = 1;
+    for (const [routeId, coords] of Object.entries(metroLineCoordinates)) {
+      // Create a few trains per line
+      for (let i = 0; i < coords.length - 1; i++) {
+        // Interpolate a position between stations based on time
+        const start = coords[i];
+        const end = coords[i+1];
+        
+        const cycle = 120; // 2 minutes between these points
+        const progress = (t % cycle) / cycle;
+        
+        // Train moving forward
+        const lat = start.lat + (end.lat - start.lat) * progress;
+        const lng = start.lng + (end.lng - start.lng) * progress;
+        
+        // Backwards train
+        const bProgress = 1 - progress;
+        const bLat = start.lat + (end.lat - start.lat) * bProgress;
+        const bLng = start.lng + (end.lng - start.lng) * bProgress;
+
+        simulatedMetros.push({
+          id: `METRO_${routeId}_${metroIdCounter++}`,
+          vehicle: {
+            trip: { tripId: `T_M${routeId}_${i}`, routeId: routeId },
+            position: { latitude: lat, longitude: lng, speed: 15.0 },
+            currentStatus: "IN_TRANSIT_TO",
+            timestamp: t,
+            vehicle: { id: `M${routeId}_${i}`, label: `Metro Ligne ${routeId} (DIR 1)` }
+          }
+        });
+        
+        simulatedMetros.push({
+          id: `METRO_${routeId}_${metroIdCounter++}`,
+          vehicle: {
+            trip: { tripId: `T_M${routeId}_${i}_B`, routeId: routeId },
+            position: { latitude: bLat, longitude: bLng, speed: 15.0 },
+            currentStatus: "IN_TRANSIT_TO",
+            timestamp: t,
+            vehicle: { id: `M${routeId}_${i}_B`, label: `Metro Ligne ${routeId} (DIR 2)` }
+          }
+        });
+      }
+    }
+
+    // Append simulated metros
+    if (!feed.entity) feed.entity = [];
+    feed.entity.push(...simulatedMetros);
     
     // We send back the decoded JSON object
     res.json({ success: true, simulated: false, data: feed });
