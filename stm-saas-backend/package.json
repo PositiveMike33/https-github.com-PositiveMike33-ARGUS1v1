@@ -1,0 +1,22 @@
+{
+  "name": "stm-saas-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^0.1.2",
+    "amqplib": "^0.10.4",
+    "express": "^4.19.2",
+    "isolated-vm": "^4.7.2",
+    "opossum": "^8.1.4",
+    "pg": "^8.11.5",
+    "redis": "^4.6.13",
+    "stripe": "^15.8.0",
+    "ws": "^8.17.0",
+    "zod": "^3.23.8",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

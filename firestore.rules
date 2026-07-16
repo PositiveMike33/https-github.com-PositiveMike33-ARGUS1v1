@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn();
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidToTAnalysisResult(data) {
+      return data.keys().hasAll(['id', 'feedId', 'feedTitle', 'feedType', 'timestamp', 'entropyScore', 'finalDecision', 'userId'])
+        && data.keys().size() <= 20
+        && data.id is string && data.id.size() <= 128
+        && data.feedId is string && data.feedId.size() <= 128
+        && data.feedTitle is string && data.feedTitle.size() <= 512
+        && data.feedType is string && data.feedType.size() <= 64
+        && data.timestamp is string && data.timestamp.size() <= 64
+        && data.entropyScore is number
+        && data.finalDecision is string && data.finalDecision.size() <= 10000
+        && data.userId == request.auth.uid;
+    }
+
+    function isValidSubscription(data) {
+      return data.keys().hasAll(['email', 'alertThreshold', 'customBriefing', 'registeredAt', 'userId'])
+        && data.keys().size() <= 8
+        && data.email is string && data.email.size() <= 256
+        && data.alertThreshold is number && data.alertThreshold >= 20 && data.alertThreshold <= 90
+        && data.customBriefing is bool
+        && data.registeredAt is string && data.registeredAt.size() <= 64
+        && data.userId == request.auth.uid
+        && (!data.keys().contains('sectors') || (data.sectors is list && data.sectors.size() <= 10));
+    }
+
+    function isValidGmailMessage(data) {
+      return data.keys().hasAll(['id', 'from', 'subject', 'snippet', 'date', 'to', 'timestamp'])
+        && data.keys().size() <= 12
+        && data.id is string && data.id.size() <= 128
+        && data.from is string && data.from.size() <= 256
+        && data.subject is string && data.subject.size() <= 512
+        && data.snippet is string && data.snippet.size() <= 10000
+        && data.date is string && data.date.size() <= 64
+        && data.to is string && data.to.size() <= 256
+        && data.timestamp is number;
+    }
+
+    function isValidCalendarEvent(data) {
+      return data.keys().hasAll(['id', 'title', 'startTime', 'endTime', 'userId', 'timestamp'])
+        && data.keys().size() <= 12
+        && data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 512
+        && data.startTime is string && data.startTime.size() <= 64
+        && data.endTime is string && data.endTime.size() <= 64
+        && data.userId == request.auth.uid
+        && data.timestamp is number;
+    }
+
+    function isValidKeepNote(data) {
+      return data.keys().hasAll(['userId', 'title', 'text', 'timestamp'])
+        && data.keys().size() <= 10
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() <= 512
+        && data.text is string && data.text.size() <= 10000
+        && data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    function isValidTelemetryLog(data) {
+      return data.keys().hasAll(['id', 'endpoint', 'status', 'responseSize', 'timestamp', 'userId'])
+        && data.keys().size() <= 8
+        && data.id is string && data.id.size() <= 128
+        && data.endpoint is string && data.endpoint.size() <= 512
+        && data.status is number
+        && data.responseSize is string && data.responseSize.size() <= 64
+        && data.timestamp is string && data.timestamp.size() <= 64
+        && data.userId == request.auth.uid;
+    }
+
+    function isValidAPILog(data) {
+      return data.keys().hasAll(['id', 'endpoint', 'status', 'responseSize', 'timestamp'])
+        && data.keys().size() <= 6
+        && data.id is string && data.id.size() <= 128
+        && data.endpoint is string && data.endpoint.size() <= 512
+        && data.status is number
+        && data.responseSize is string && data.responseSize.size() <= 64
+        && data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    // Match definitions
+    match /decisions/{decisionId} {
+      allow get: if isVerified() && existing().userId == request.auth.uid;
+      allow list: if isVerified() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidId(decisionId) && isValidToTAnalysisResult(incoming());
+      allow update, delete: if false; // Decisions are immutable logs
+    }
+
+    match /subscriptions/{subscriptionId} {
+      allow get: if isVerified() && subscriptionId == request.auth.uid;
+      allow list: if isVerified() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && subscriptionId == request.auth.uid && isValidSubscription(incoming());
+      allow update: if isVerified() && subscriptionId == request.auth.uid && isValidSubscription(incoming()) && incoming().userId == existing().userId;
+      allow delete: if isVerified() && subscriptionId == request.auth.uid;
+    }
+
+    match /gmail_messages/{messageId} {
+      allow read: if isVerified();
+      allow create, update: if isVerified() && isValidId(messageId) && isValidGmailMessage(incoming());
+      allow delete: if false; // Persistent logs
+    }
+
+    match /calendar_events/{eventId} {
+      allow read: if isVerified() && resource.data.userId == request.auth.uid;
+      allow create, update: if isVerified() && isValidId(eventId) && isValidCalendarEvent(incoming());
+      allow delete: if isVerified() && resource.data.userId == request.auth.uid;
+    }
+
+    match /keep_notes/{noteId} {
+      allow get: if isVerified() && existing().userId == request.auth.uid;
+      allow list: if isVerified() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidId(noteId) && isValidKeepNote(incoming());
+      allow update: if isVerified() && isValidId(noteId) && isValidKeepNote(incoming()) && existing().userId == request.auth.uid;
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
+    }
+
+    match /telemetry_logs/{logId} {
+      allow get: if isVerified() && existing().userId == request.auth.uid;
+      allow list: if isVerified() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidId(logId) && isValidTelemetryLog(incoming());
+      allow update, delete: if false; // Immutable logs
+    }
+
+    match /api_logs/{logId} {
+      allow get: if isVerified();
+      allow list: if isVerified();
+      allow create: if isVerified() && isValidId(logId) && isValidAPILog(incoming());
+      allow update, delete: if false; // Immutable logs
+    }
+
+    match /test/{testId} {
+      allow get: if true;
+      allow write: if false;
+    }
+  }
+}

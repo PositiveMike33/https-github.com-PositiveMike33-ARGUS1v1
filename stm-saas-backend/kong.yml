@@ -1,0 +1,24 @@
+_format_version: "3.0"
+services:
+  - name: stm-api-service
+    url: http://stm-saas-api:3000
+    routes:
+      - name: stm-route
+        paths:
+          - /api/v1
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 50
+          policy: redis
+          redis_host: redis-stack
+          redis_port: 6379
+      - name: cors
+        config: 
+          origins:
+            - "http://localhost:5173" # Ton app React/Vite locale
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          credentials: true

@@ -1,0 +1,10 @@
+{
+  "name": " ARGUS ENGINE",
+  "description": "Système transformant les flux ARGUS (STM, Aviation, Maritime) en décisions actionnables via une méthodologie Tree of Thoughts (ToT), avec scoring d\u0027entropie quantique. intégrant une interface de pilotage analytique en temps réel.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
