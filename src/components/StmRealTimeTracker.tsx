@@ -56,7 +56,11 @@ const METRO_LINES: Record<string, { color: string, coords: [number, number][] }>
   }
 };
 
-export const StmRealTimeTracker: React.FC = () => {
+interface StmRealTimeTrackerProps {
+  externalFilter?: 'ALL' | 'BUS' | 'METRO';
+}
+
+export const StmRealTimeTracker: React.FC<StmRealTimeTrackerProps> = ({ externalFilter }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
@@ -65,6 +69,12 @@ export const StmRealTimeTracker: React.FC = () => {
   const markersRef = useRef<{ [id: string]: L.Marker }>({});
   const [filter, setFilter] = useState<'ALL' | 'BUS' | 'METRO'>('ALL');
   const polylineRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    if (externalFilter) {
+      setFilter(externalFilter);
+    }
+  }, [externalFilter]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
